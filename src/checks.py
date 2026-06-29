@@ -410,6 +410,13 @@ MX_PROVIDER_PATTERNS: dict[str, str] = {
     "pphosted.com": "Proofpoint",
     "mimecast.com": "Mimecast",
     "messagelabs.com": "Symantec/Mimecast",
+    "163.com": "NetEase",
+    "126.com": "NetEase",
+    "yeah.net": "NetEase",
+    "yandex.net": "Yandex",
+    "yandex.ru": "Yandex",
+    "mail.ru": "Mail.ru",
+    "qq.com": "Tencent QQ",
 }
 
 
@@ -545,17 +552,27 @@ def _generate_random_local() -> str:
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=12))
 
 
-def probe_catch_all(mx_host: str, domain: str, timeout_seconds: float = 5.0) -> bool:
+def probe_catch_all(
+    mx_host: str,
+    domain: str,
+    timeout_seconds: float = 5.0,
+    connect_timeout: float | None = None,
+) -> bool:
     """
     Probe a domain for catch-all behavior by attempting RCPT TO on a
     non-existent address. Returns True if domain is catch-all, False otherwise.
+
+    connect_timeout bounds the TCP connect separately from SMTP commands so a
+    blocked port-25 connect fails fast instead of riding the full budget.
     """
     random_local = _generate_random_local()
     test_email = f"{random_local}@{domain}"
+    if connect_timeout is None:
+        connect_timeout = timeout_seconds
 
     try:
         with smtplib.SMTP(timeout=timeout_seconds) as smtp:
-            smtp.connect(mx_host, 25, timeout=timeout_seconds)
+            smtp.connect(mx_host, 25, timeout=connect_timeout)
             smtp.ehlo_or_helo_if_needed()
             # Empty MAIL FROM (<>) per RFC 5321 verification convention.
             smtp.mail("")
@@ -567,20 +584,30 @@ def probe_catch_all(mx_host: str, domain: str, timeout_seconds: float = 5.0) -> 
 
 
 # ── SMTP verification ──────────────────────────────────────────────────────
-def smtp_verify_sync(email: str, mx_host: str, timeout_seconds: float = 5.0) -> bool | None:
+def smtp_verify_sync(
+    email: str,
+    mx_host: str,
+    timeout_seconds: float = 5.0,
+    connect_timeout: float | None = None,
+) -> bool | None:
     """
     Synchronous SMTP verification against one MX host.
     Returns True (valid), False (invalid), or None (unknown/temp failure).
+
+    connect_timeout bounds the TCP connect separately from SMTP commands so a
+    blocked port-25 connect fails fast instead of riding the full budget.
     """
     # Extract local part and domain for MAIL FROM
     _, parsed = parseaddr(email)
     if not parsed:
         return None
     local, domain = parsed.rsplit("@", 1)
+    if connect_timeout is None:
+        connect_timeout = timeout_seconds
 
     try:
         with smtplib.SMTP(timeout=timeout_seconds) as smtp:
-            smtp.connect(mx_host, 25, timeout=timeout_seconds)
+            smtp.connect(mx_host, 25, timeout=connect_timeout)
             smtp.ehlo_or_helo_if_needed()
 
             # Empty MAIL FROM (<>) per RFC 5321 verification convention.

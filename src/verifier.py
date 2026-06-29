@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 # ── Constants ──────────────────────────────────────────────────────────────
 CHARGE_UNKNOWN: bool = False
 
+# Fail-fast: bound the TCP connect short so a blocked port-25 connect (e.g. on
+# Apify cloud) aborts in ~3s instead of riding the full per-email budget. Keeps
+# the cost of unavoidable `unknown` results low (they earn no revenue).
+SMTP_CONNECT_TIMEOUT: float = 3.0
+
 # Score constants
 SCORE_BAD_SYNTAX = 0
 SCORE_NO_MX = 0
@@ -176,6 +181,7 @@ async def verify_email(
                         mx_hosts[0],
                         domain_lower,
                         min(remaining, 5.0),
+                        min(SMTP_CONNECT_TIMEOUT, remaining),
                     ),
                     timeout=min(remaining, 5.5),
                 )
@@ -199,28 +205,28 @@ async def verify_email(
         )
 
     # ── Stage 7: SMTP RCPT TO verification ─────────────────────────────────
+    # Probe only the primary (lowest-preference) MX. Trying every MX triples
+    # compute on doomed domains for ~no accuracy gain; the primary's verdict is
+    # authoritative and the short connect timeout caps the cost of failures.
     remaining = max(1.0, deadline - time.monotonic())
     smtp_result = None  # True=valid, False=invalid, None=unknown
 
-    for mx_host in mx_hosts[:3]:  # Try up to 3 MX hosts
-        remaining_host = remaining / len(mx_hosts[:3])
-        try:
-            host_result = await asyncio.wait_for(
-                asyncio.to_thread(
-                    checks.smtp_verify_sync,
-                    normalized_email,
-                    mx_host,
-                    min(remaining_host, timeout_seconds * 0.8),
-                ),
-                timeout=min(remaining_host, timeout_seconds * 0.85),
-            )
-            if host_result is not None:
-                smtp_result = host_result
-                break
-        except (asyncio.TimeoutError, Exception) as exc:
-            logger.debug("SMTP timeout/error for %s on %s: %s",
-                         normalized_email, mx_host, exc)
-            continue
+    mx_host = mx_hosts[0]
+    try:
+        smtp_result = await asyncio.wait_for(
+            asyncio.to_thread(
+                checks.smtp_verify_sync,
+                normalized_email,
+                mx_host,
+                min(remaining, timeout_seconds * 0.8),
+                min(SMTP_CONNECT_TIMEOUT, remaining),
+            ),
+            timeout=min(remaining, timeout_seconds * 0.85),
+        )
+    except Exception as exc:
+        logger.debug("SMTP timeout/error for %s on %s: %s",
+                     normalized_email, mx_host, exc)
+        smtp_result = None
 
     # ── Determine final result ─────────────────────────────────────────────
     if smtp_result is True:

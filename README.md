@@ -11,7 +11,10 @@ Bulk email verification actor for Apify.
 - SMTP RCPT TO handshake
 - Honesty rule for Gmail, Outlook, Yahoo, iCloud, ProtonMail
 - MX-host honesty rule: detects custom domains hosted on Google Workspace,
-  Microsoft 365, Tutanota, Proton, Zoho, Proofpoint, Mimecast, etc.
+  Microsoft 365, Tutanota, Proton, Zoho, Proofpoint, Mimecast, NetEase, Yandex,
+  Mail.ru, Tencent QQ, etc.
+- Fail-fast SMTP: short connect timeout and single primary-MX probe so blocked
+  or slow servers return `unknown` quickly instead of burning the full timeout
 - Bounded concurrency (1-50)
 - Per-email timeout
 - Pay-per-event pricing
@@ -57,9 +60,15 @@ Bulk email verification actor for Apify.
   greylist or refuse unknown senders, so SMTP probes may return `unknown`
   (`smtp_timeout`). Unknown results are not charged. Domains hosted on major
   providers (Google Workspace, M365, Tutanota, Proton, Zoho, Proofpoint,
-  Mimecast) are short-circuited to `risky/provider_unverifiable` before the SMTP
-  step, since those providers block external mailbox verification regardless of
-  source IP — no provider, IP, or tool can confirm those mailboxes externally.
+  Mimecast, NetEase, Yandex, Mail.ru, Tencent QQ) are short-circuited to
+  `risky/provider_unverifiable` before the SMTP step, since those providers block
+  external mailbox verification regardless of source IP — no provider, IP, or
+  tool can confirm those mailboxes externally.
+- **Fail-fast & cost**: blocked/slow SMTP aborts at a short connect timeout (~3s)
+  and only the primary MX is probed, so `unknown` results resolve quickly. The
+  MX-host list is intentionally conservative — when a provider can't be confirmed
+  to block verification, the address is left to a real SMTP probe and may come
+  back `unknown` (free) rather than being wrongly charged as `risky`.
 - **mxFound semantics**: reflects whether an MX lookup ran and succeeded. Stages that
   short-circuit before the MX lookup (disposable) report `false` even though the domain
   may have MX. Major providers report `true` (known to have MX; not SMTP-probed).
