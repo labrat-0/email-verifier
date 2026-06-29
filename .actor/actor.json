@@ -3,7 +3,7 @@
   "name": "email-verifier",
   "title": "Email Verifier & Deliverability Checker",
   "description": "Bulk email verification. Checks syntax, MX, SMTP, catch-all, disposable and role accounts, and returns a deliverability score per address. Pay only per verified email. CRM and cold-email ready; agent-payable via x402.",
-  "version": "0.1",
+  "version": "0.2",
   "buildTag": "latest",
   "meta": {
     "seoTitle": "Bulk Email Verifier & Deliverability Checker",
