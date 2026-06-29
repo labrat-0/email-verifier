@@ -1,6 +1,28 @@
 # Email Verifier & Deliverability Checker
 
 Bulk email verification actor for Apify.
+
+## Understanding your results (read this first)
+
+Every email returns one of four statuses. Here is what each means and what to do:
+
+| status | Meaning | What to do | Billed? |
+|--------|---------|-----------|---------|
+| **valid** | Mailbox exists and accepts mail (confirmed by SMTP). | Safe to send. | ✅ Yes |
+| **invalid** | Address is bad — syntax error, no mail server, or the mailbox was rejected. | Do not send. Remove it. | ✅ Yes |
+| **risky** | Real domain, but the mailbox can't be confirmed — it's a catch-all, disposable, or hosted on a provider that blocks verification (see below). | Your call. Often deliverable, but lower confidence. | ✅ Yes |
+| **unknown** | We couldn't reach the mail server to get an answer (timeout/blocked). | Re-run later, or treat as unverified. | ❌ **Free** |
+
+**You are only charged for `valid`, `invalid`, and `risky` (plus one `actor-start` per run). `unknown` is always free.**
+
+### "My real Gmail / Outlook / company address came back `risky` — is that a bug?"
+
+No. Large providers — **Gmail, Outlook/Microsoft 365, Yahoo, iCloud, Proton, Tutanota, Zoho, and any custom domain hosted on them** — deliberately refuse external mailbox checks. They answer "maybe" to every probe to stop spammers from harvesting valid addresses. **No verification service on earth can return a definitive `valid`/`invalid` for these** — anyone claiming otherwise is guessing. We return `risky` with reason `provider_unverifiable`, which is the honest answer: the domain is real and likely deliverable, we just can't confirm the individual mailbox. These addresses are generally safe to email.
+
+### "Why did I get `unknown`? Did the tool fail?"
+
+`unknown` means the destination mail server didn't give us a usable answer in time (it timed out, greylisted us, or blocked the connection). It is **not** a failure or an error, and it is **never charged**. Re-running later sometimes resolves it. It's most common for small self-hosted mail servers.
+
 ## Features
 
 - Syntax validation via Python email module
@@ -42,6 +64,10 @@ Bulk email verification actor for Apify.
 | isFreeProvider | bool | Free consumer provider |
 | isCatchAll | bool | Domain accepts all mail |
 
+`score` is a 0–100 deliverability confidence: roughly 90+ confirmed valid, 45–85
+deliverable-but-unconfirmed (`risky`), 0 invalid/undeliverable. Use it to rank or
+threshold a list; the `status` field is the headline verdict.
+
 ### Reason codes
 
 - bad_syntax - email fails RFC syntax
@@ -77,11 +103,16 @@ Bulk email verification actor for Apify.
 
 ## Pricing
 
-Pay-per-event (PPE):
+Pay-per-event (PPE) — you only pay for results, not for runtime:
 
-- actor-start: charged once per run
-- email-verified: charged per email with definitive result
-- Unknown results are free
+- **actor-start** — charged once per run.
+- **email-verified** — charged once per email that returns `valid`, `invalid`, or
+  `risky` (any conclusive answer, including `provider_unverifiable` and `catch_all`).
+- **`unknown` results are always free** — if we can't reach the server to get an
+  answer, you pay nothing for that email.
+
+So a run of 1,000 emails where 50 come back `unknown` bills `actor-start` + 950
+`email-verified` events, not 1,000.
 
 ## Development
 
