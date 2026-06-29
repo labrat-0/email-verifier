@@ -1,0 +1,42 @@
+{
+  "actorSpecification": 1,
+  "fields": {
+    "type": "object",
+    "properties": {
+      "email": { "type": "string", "description": "The email address that was verified." },
+      "status": {
+        "type": "string",
+        "enum": ["valid", "invalid", "risky", "unknown"],
+        "description": "Overall verdict. valid = mailbox accepts mail; invalid = will bounce; risky = deliverable but low-confidence (catch-all, role, or major-provider that lies at SMTP); unknown = could not be determined (timeout/block). Unknown results are not charged."
+      },
+      "reason": { "type": "string", "description": "Machine-readable reason code, e.g. bad_syntax, no_mx, mailbox_not_found, catch_all, disposable, role_account, provider_unverifiable, smtp_timeout, smtp_blocked." },
+      "score": { "type": "integer", "description": "Deterministic 0-100 deliverability score derived from the checks. Higher is safer to send to." },
+      "mxFound": { "type": "boolean", "description": "Whether the domain has at least one valid MX record." },
+      "isDisposable": { "type": "boolean", "description": "Domain is a known disposable/throwaway provider." },
+      "isRoleAccount": { "type": "boolean", "description": "Local part is a role address (info, sales, admin, support, etc.) rather than a person." },
+      "isFreeProvider": { "type": "boolean", "description": "Domain is a free consumer provider (gmail, outlook, yahoo, etc.)." },
+      "isCatchAll": { "type": "boolean", "description": "Domain accepts mail for any address, so a positive SMTP result is not conclusive." }
+    },
+    "required": ["email", "status", "reason", "score"]
+  },
+  "views": {
+    "overview": {
+      "title": "Verification results",
+      "transformation": {
+        "fields": ["email", "status", "reason", "score", "isCatchAll", "isDisposable", "isRoleAccount"]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "email": { "label": "Email" },
+          "status": { "label": "Status" },
+          "reason": { "label": "Reason" },
+          "score": { "label": "Score" },
+          "isCatchAll": { "label": "Catch-all" },
+          "isDisposable": { "label": "Disposable" },
+          "isRoleAccount": { "label": "Role" }
+        }
+      }
+    }
+  }
+}

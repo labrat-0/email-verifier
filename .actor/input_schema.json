@@ -1,0 +1,43 @@
+{
+  "title": "Email Verifier & Deliverability Checker",
+  "description": "Paste the emails you want to verify and tune speed/safety. One result row is returned per email.",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "emails": {
+      "title": "Emails to verify",
+      "type": "array",
+      "description": "List of email addresses to verify. One result row is produced per address. Duplicates are de-duplicated automatically (a domain is resolved only once per run).",
+      "editor": "stringList",
+      "prefill": ["john@example.com", "info@apify.com", "not-an-email", "test@gmail.com"],
+      "minItems": 1,
+      "maxItems": 100000
+    },
+    "concurrency": {
+      "title": "Concurrency",
+      "type": "integer",
+      "description": "How many emails to verify in parallel. Higher is faster but uses more compute and is more likely to trip SMTP rate limits. Leave at default unless you know you need more.",
+      "default": 10,
+      "minimum": 1,
+      "maximum": 50,
+      "unit": "emails in parallel"
+    },
+    "perEmailTimeoutMs": {
+      "title": "Per-email timeout (ms)",
+      "type": "integer",
+      "description": "Hard timeout for each email's network checks (MX + SMTP). On timeout the email is returned as \"unknown\" rather than hanging the run. You are NOT charged for unknown results.",
+      "default": 8000,
+      "minimum": 2000,
+      "maximum": 30000,
+      "unit": "ms"
+    },
+    "verifyCatchAll": {
+      "title": "Probe catch-all domains",
+      "type": "boolean",
+      "description": "When on, the actor sends one extra SMTP probe per domain to detect accept-all (catch-all) servers and flags those addresses as \"risky\". Turn off to run slightly cheaper if you don't care about catch-all detection.",
+      "default": true,
+      "groupCaption": "Checks"
+    }
+  },
+  "required": ["emails"]
+}
