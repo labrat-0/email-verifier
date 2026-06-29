@@ -48,6 +48,17 @@ Bulk email verification actor for Apify.
 - smtp_timeout - connection timed out or blocked
 - smtp_blocked - connection refused or blocked
 
+## Notes & limitations
+
+- **SMTP from cloud IPs**: outbound port 25 is often blocked and many MX servers
+  greylist or refuse unknown senders, so SMTP probes may return `unknown`
+  (`smtp_timeout`). Unknown results are not charged.
+- **mxFound semantics**: reflects whether an MX lookup ran and succeeded. Stages that
+  short-circuit before the MX lookup (disposable) report `false` even though the domain
+  may have MX. Major providers report `true` (known to have MX; not SMTP-probed).
+- **Catch-all detection**: a single random-address RCPT probe. A server that accepts
+  then later bounces will be reported as catch-all.
+
 ## Pricing
 
 Pay-per-event (PPE):

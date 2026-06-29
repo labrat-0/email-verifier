@@ -157,7 +157,7 @@ DISPOSABLE_DOMAINS: set[str] = {
     "mail.aws910.com", "mail.backflip.org", "mail.bccto.me",
     "mail.dataless.ga", "mail.ez.lv", "mail.fast10s.design",
     "mail.fettometern.com", "mail.hotmail.com", "mail.msaging.com",
-    "mail.ru", "mail.by", "mail0.ga", "mail1.drama.tw", "mail114.net",
+    "mail.by", "mail0.ga", "mail1.drama.tw", "mail114.net",
     "mail1a.de", "mail21.cc", "mail22.club", "mail2rss.org",
     "mail333.com", "mail4trash.com", "mail4you.usa.cc",
     "mail666.ru", "mail7.org", "mail707.com", "mail8.org",
@@ -210,7 +210,7 @@ DISPOSABLE_DOMAINS: set[str] = {
     "omail.pro", "one-time.email", "oneoffemail.com", "oneoffmail.com",
     "onewaymail.com", "onlatedotcom.info", "onmail.win", "onqin.xyz",
     "ontyne.biz", "opentrash.net", "opmmedia.ga", "origin.xyz",
-    "outlook.com", "outlook.sk", "ovamail.net", "ovenmail.com",
+    "outlook.sk", "ovamail.net", "ovenmail.com",
     "oxfarm1.com", "ozost.com", "pakadebu.ga", "paplease.com",
     "parisannonce.com", "pcapps.xyz", "pcu6.com", "pepbot.com",
     "peppe.usa.cc", "petaloft.com", "pfui.ru", "phrco.de", "pig.pp.ru",
@@ -454,10 +454,12 @@ def is_role_account(local_part: str) -> bool:
     # Check exact match
     if local_lower in ROLE_PREFIXES:
         return True
-    # Check prefix match (e.g. "info@", "sales-team@")
+    # Check prefix match with a separator boundary (e.g. "sales-team", "info.uk").
+    # Bare startswith would flag real names ("priya" via "pr", "newsom" via "news").
     for prefix in ROLE_PREFIXES:
-        if local_lower.startswith(prefix):
-            return True
+        if local_lower.startswith(prefix) and len(local_lower) > len(prefix):
+            if local_lower[len(prefix)] in "-._+":
+                return True
     return False
 
 
@@ -511,14 +513,13 @@ def probe_catch_all(mx_host: str, domain: str, timeout_seconds: float = 5.0) -> 
     """
     random_local = _generate_random_local()
     test_email = f"{random_local}@{domain}"
-    # Use a null sender
-    null_sender = "validate@example.com"
 
     try:
         with smtplib.SMTP(timeout=timeout_seconds) as smtp:
             smtp.connect(mx_host, 25, timeout=timeout_seconds)
             smtp.ehlo_or_helo_if_needed()
-            smtp.mail(null_sender)
+            # Empty MAIL FROM (<>) per RFC 5321 verification convention.
+            smtp.mail("")
             code, _ = smtp.rcpt(test_email)
             # 250 = accepted → catch-all
             return code == 250
@@ -538,16 +539,13 @@ def smtp_verify_sync(email: str, mx_host: str, timeout_seconds: float = 5.0) -> 
         return None
     local, domain = parsed.rsplit("@", 1)
 
-    # Use a plausible null sender (non-existent at a real domain)
-    null_sender = "noreply@example.com"
-
     try:
         with smtplib.SMTP(timeout=timeout_seconds) as smtp:
             smtp.connect(mx_host, 25, timeout=timeout_seconds)
             smtp.ehlo_or_helo_if_needed()
 
-            # Some servers require HELO, some EHLO
-            smtp.mail(null_sender)
+            # Empty MAIL FROM (<>) per RFC 5321 verification convention.
+            smtp.mail("")
             rcpt_code, rcpt_msg = smtp.rcpt(email)
 
             # 250 = mailbox exists (valid)

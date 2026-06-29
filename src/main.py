@@ -158,14 +158,14 @@ async def run_actor() -> None:
             unknown_count,
         )
 
-        # Handle remaining tasks if we stopped early
+        # Handle remaining tasks if we stopped early.
+        # `tasks` holds raw coroutines (no .cancel()); the stop_processing flag plus
+        # the as_completed break already halt work — unscheduled coroutines are GC'd.
         if stop_processing and completed < total:
             remaining_count = total - completed
             logger.info(
                 "%d email(s) skipped due to event charge limit.",
                 remaining_count,
             )
-            for t in tasks:
-                t.cancel()
 
         Actor.log.info("Email verification completed successfully")

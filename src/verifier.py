@@ -103,7 +103,7 @@ async def verify_email(
             status="risky",
             reason="provider_unverifiable",
             score=SCORE_PROVIDER_UNVERIFIABLE,
-            mxFound=False,
+            mxFound=True,  # major providers always have MX; we just don't SMTP-probe them
             isDisposable=False,
             isRoleAccount=is_role,
             isFreeProvider=True,
@@ -121,7 +121,7 @@ async def verify_email(
                 asyncio.to_thread(checks.resolve_mx, domain_lower),
                 timeout=min(remaining, 5.0),
             )
-        except (asyncio.TimeoutError, Exception) as exc:
+        except Exception as exc:
             logger.debug("MX resolve timeout/fail for %s: %s", domain_lower, exc)
             mx_hosts = None
         caches.mx_cache[domain_lower] = mx_hosts
@@ -161,7 +161,7 @@ async def verify_email(
                     timeout=min(remaining, 5.5),
                 )
                 is_catch_all = probe_result
-            except (asyncio.TimeoutError, Exception) as exc:
+            except Exception as exc:
                 logger.debug("Catch-all probe fail for %s: %s", domain_lower, exc)
                 is_catch_all = False
             caches.catch_all_cache[domain_lower] = is_catch_all
