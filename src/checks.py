@@ -389,6 +389,30 @@ MAJOR_PROVIDER_DOMAINS: set[str] = {
     "mail.com", "fastmail.com", "tutanota.com",
 }
 
+# ── MX-host provider patterns (honesty rule by mail host) ──────────────────
+# Domains whose MX points to one of these hosts run on a provider that does not
+# allow external mailbox verification (greylists/refuses RCPT, or is encrypted-
+# only). Detect by substring match on the MX hostname so any custom domain on
+# these providers is handled, not just the consumer domain.
+MX_PROVIDER_PATTERNS: dict[str, str] = {
+    "google.com": "Google Workspace",
+    "googlemail.com": "Google Workspace",
+    "outlook.com": "Microsoft 365",
+    "protection.outlook.com": "Microsoft 365",
+    "tutanota.de": "Tutanota (encrypted)",
+    "tuta.com": "Tutanota (encrypted)",
+    "protonmail.ch": "Proton Mail (encrypted)",
+    "proton.me": "Proton Mail (encrypted)",
+    "zoho.com": "Zoho",
+    "zoho.eu": "Zoho",
+    "yahoodns.net": "Yahoo",
+    "icloud.com": "iCloud",
+    "pphosted.com": "Proofpoint",
+    "mimecast.com": "Mimecast",
+    "messagelabs.com": "Symantec/Mimecast",
+}
+
+
 # ── Free consumer providers ────────────────────────────────────────────────
 FREE_PROVIDER_DOMAINS: set[str] = {
     "gmail.com", "outlook.com", "hotmail.com", "yahoo.com",
@@ -473,6 +497,21 @@ def is_major_provider(domain: str) -> bool:
 def is_free_provider(domain: str) -> bool:
     """Check if domain is a free consumer provider."""
     return domain.lower() in FREE_PROVIDER_DOMAINS
+
+
+# ── MX-host provider detection (honesty rule by mail host) ─────────────────
+def detect_mx_provider(mx_hosts: list[str]) -> str | None:
+    """
+    Inspect resolved MX hostnames. If they belong to a provider that blocks
+    external mailbox verification, return the provider name; else None.
+    Substring match so e.g. "aspmx.l.google.com" -> Google Workspace.
+    """
+    for host in mx_hosts:
+        host_lower = host.lower().rstrip(".")
+        for pattern, provider in MX_PROVIDER_PATTERNS.items():
+            if host_lower == pattern or host_lower.endswith("." + pattern):
+                return provider
+    return None
 
 
 # ── MX DNS lookup ──────────────────────────────────────────────────────────

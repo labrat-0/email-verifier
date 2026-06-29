@@ -142,6 +142,25 @@ async def verify_email(
 
     mx_found = True
 
+    # ── Stage 5b: MX-host honesty rule ─────────────────────────────────────
+    # If the domain's MX points to a provider that blocks external mailbox
+    # verification (Google Workspace, M365, Tutanota, Proton, etc.), don't
+    # attempt a doomed SMTP probe — return provider_unverifiable deterministically.
+    mx_provider = checks.detect_mx_provider(mx_hosts)
+    if mx_provider is not None:
+        logger.debug("MX-host honesty rule matched %s for %s", mx_provider, domain_lower)
+        return OutputModel(
+            email=normalized_email,
+            status="risky",
+            reason="provider_unverifiable",
+            score=SCORE_PROVIDER_UNVERIFIABLE,
+            mxFound=True,
+            isDisposable=False,
+            isRoleAccount=is_role,
+            isFreeProvider=is_free,
+            isCatchAll=False,
+        )
+
     # ── Stage 6: Catch-all probe (cached per domain) ───────────────────────
     is_catch_all = False
     if verify_catch_all:

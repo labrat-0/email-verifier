@@ -10,6 +10,8 @@ Bulk email verification actor for Apify.
 - Catch-all detection via SMTP probe
 - SMTP RCPT TO handshake
 - Honesty rule for Gmail, Outlook, Yahoo, iCloud, ProtonMail
+- MX-host honesty rule: detects custom domains hosted on Google Workspace,
+  Microsoft 365, Tutanota, Proton, Zoho, Proofpoint, Mimecast, etc.
 - Bounded concurrency (1-50)
 - Per-email timeout
 - Pay-per-event pricing
@@ -44,7 +46,8 @@ Bulk email verification actor for Apify.
 - no_mx - domain has no MX records
 - mailbox_not_found - SMTP rejected (5xx)
 - catch_all - domain accepts any address
-- provider_unverifiable - major provider, SMTP lies
+- provider_unverifiable - major provider or MX hosted on one (Google Workspace,
+  M365, Tutanota, Proton, etc.); mailbox can't be verified externally
 - smtp_timeout - connection timed out or blocked
 - smtp_blocked - connection refused or blocked
 
@@ -52,7 +55,11 @@ Bulk email verification actor for Apify.
 
 - **SMTP from cloud IPs**: outbound port 25 is often blocked and many MX servers
   greylist or refuse unknown senders, so SMTP probes may return `unknown`
-  (`smtp_timeout`). Unknown results are not charged.
+  (`smtp_timeout`). Unknown results are not charged. Domains hosted on major
+  providers (Google Workspace, M365, Tutanota, Proton, Zoho, Proofpoint,
+  Mimecast) are short-circuited to `risky/provider_unverifiable` before the SMTP
+  step, since those providers block external mailbox verification regardless of
+  source IP — no provider, IP, or tool can confirm those mailboxes externally.
 - **mxFound semantics**: reflects whether an MX lookup ran and succeeded. Stages that
   short-circuit before the MX lookup (disposable) report `false` even though the domain
   may have MX. Major providers report `true` (known to have MX; not SMTP-probed).
@@ -97,5 +104,6 @@ src/
 3. Role account - prefix match (flag only)
 4. Major provider - honesty rule (risky)
 5. MX DNS lookup - cached per domain
+5b. MX-host honesty rule - if MX is a verification-blocking provider, stop (risky)
 6. Catch-all probe - cached per domain
 7. SMTP RCPT TO - definitive result
