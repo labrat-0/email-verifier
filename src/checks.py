@@ -460,6 +460,9 @@ def syntax_check(email: str) -> tuple[bool, str]:
     # Check for common syntax errors
     if ".." in local:
         return False, ""
+    # Leading or trailing dot in the local part is invalid per RFC 5322
+    if local.startswith(".") or local.endswith("."):
+        return False, ""
     # Domain must have at least one dot (or be localhost for testing)
     if "." not in domain and domain != "localhost":
         return False, ""
